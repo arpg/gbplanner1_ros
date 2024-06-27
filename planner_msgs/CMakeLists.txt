@@ -47,6 +47,11 @@ add_message_files(
   Graph.msg
 )
 
+add_action_files(
+ FILES
+ pathFollowerAction.action
+)
+
 generate_messages(
   DEPENDENCIES
   geometry_msgs

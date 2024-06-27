@@ -1,0 +1,58 @@
+<launch>
+  <!-- All settings -->
+  <arg name="robot_name" default="D01"/>
+  <arg name="gazebo_gui_en" default="false"/> <!-- Not needed for real robot -->
+  <arg name="use_sim_time" default="false"/>  <!-- Set to false for real robot -->
+  <arg name="rviz_en" default="true" />
+  <arg name="launch_prefix" default=""/> <!-- gdb -ex run //args -->
+  <param name="use_sim_time" value="$(arg use_sim_time)"/>
+
+  <!-- Config files -->
+  <arg name="gbplanner_config_file" default="$(find gbplanner)/config/$(arg robot_name)/gbplanner_config.yaml"/>
+  <arg name="pci_file" default="$(find gbplanner)/config/$(arg robot_name)/planner_control_interface_real_config.yaml"/> <!-- Real robot config -->
+  <arg name="octomap_config_file" default="$(find gbplanner)/config/$(arg robot_name)/octomap_real_config.yaml"/> <!-- Real robot config -->
+  <arg name="voxblox_config_file" default="$(find gbplanner)/config/$(arg robot_name)/voxblox_real_config.yaml"/> <!-- Real robot config -->
+  <arg name="map_config_file" default="$(arg octomap_config_file)"/>
+
+  <!-- Static TF -->
+  <node pkg="tf" type="static_transform_publisher" name="tf_53" args="0 0 0 0 0 0 world navigation 100" />
+  <node pkg="tf" type="static_transform_publisher" name="tf_51" args="0.15 0 0.0 0.0 0.261 0.0 $(arg robot_name)/base_link $(arg robot_name)/vi_sensor/base_link 10" />
+  <node pkg="tf" type="static_transform_publisher" name="tf_1" args="0 0 0 0 0 0 $(arg robot_name)/vi_sensor/base_link fcu 1" />
+  <node pkg="tf" type="static_transform_publisher" name="tf_2" args="0.015 0.055 0.0065 -1.57 0.1 -1.57 fcu $(arg robot_name)/vi_sensor/camera_depth_optical_center_link 1" />
+  <node pkg="tf" type="static_transform_publisher" name="tf_3" args="0.015 0.055 0.0065 -1.57 0.1 -1.57 fcu $(arg robot_name)/vi_sensor/camera_left_link 1" />
+  <node pkg="tf" type="static_transform_publisher" name="tf_4" args="0.015 -0.055 0.0065 -1.57 0.1 -1.57 fcu $(arg robot_name)/vi_sensor/camera_right_link 1" />
+  <node pkg="tf" type="static_transform_publisher" name="tf_5" args="0 0 0.05 0.0 0.0 0.0 $(arg robot_name)/base_link $(arg robot_name)/velodyne 10" />
+  <!-- 
+  <group ns="$(arg robot_name)">
+    <node name="img_throttler" type="throttle" pkg="topic_tools" args="messages vi_sensor/camera_depth/depth/points 5 vi_sensor/camera_depth/depth/points_throttled" />
+    <node name="odo_throttler" type="throttle" pkg="topic_tools" args="messages ground_truth/odometry 100 ground_truth/odometry_throttled" />
+  -->
+    <!-- MAV launch: Remove for real robot -->
+
+
+  <!--<arg name="odometry_topic" default="$(arg robot_name)/ground_truth/odometry_throttled"/>-->
+  <arg name="odometry_topic" default="/D01/odometry"/>
+  <node name="pose_throttler" type="throttle" pkg="topic_tools" args="messages $(arg robot_name)/ground_truth/pose_with_covariance 10 /msf_core/pose" />
+  
+  <node pkg="topic_tools" type="relay" name="vlp_relay" args="/D01/horiz/os_cloud_node/points /input_pointcloud" />updated to our point cloud name
+
+  <!-- Graph based planning -->
+  <node pkg="gbplanner" type="gbplanner_node" name="gbplanner_node" output="screen" launch-prefix="$(arg launch_prefix)">
+    <remap from="odometry" to="$(arg odometry_topic)" />
+    <remap from="/pointcloud" to="/D01/horiz/os_cloud_node/points" />
+    <rosparam command="load" file="$(arg gbplanner_config_file)" />
+    <rosparam command="load" file="$(arg map_config_file)" />
+  </node>
+
+  <!-- Planner and Control Interface -->
+  <node pkg="pci_general" type="pci_general_ros_node" name="pci_general_ros_node" output="screen">
+    <remap from="command/trajectory" to="$(arg robot_name)/command/trajectory" />
+    <remap from="planner_server" to="gbplanner" />
+    <remap from="planner_homing_server" to="gbplanner/homing" />
+    <remap from="odometry" to="$(arg odometry_topic)"/>
+    <rosparam command="load" file="$(arg pci_file)" />
+  </node>
+
+  <!-- Launch RViz if enabled -->
+  <node if="$(arg rviz_en)" pkg="rviz" type="rviz" name="gbplanner_ui" output="screen" args="-d $(find gbplanner)/config/rviz/m100_real.rviz"/>
+</launch>
