@@ -34,12 +34,14 @@
   <arg name="odometry_topic" default="/D01/odometry"/>
   <node name="pose_throttler" type="throttle" pkg="topic_tools" args="messages $(arg robot_name)/ground_truth/pose_with_covariance 10 /msf_core/pose" />
   
-  <node pkg="topic_tools" type="relay" name="vlp_relay" args="/D01/horiz/os_cloud_node/points /input_pointcloud" />updated to our point cloud name
+  <!-- <node pkg="topic_tools" type="relay" name="vlp_relay" args="/D01/horiz/os_cloud_node/points /input_pointcloud" /> -->
+  <node pkg="topic_tools" type="relay" name="vlp_relay" args="/D01/octomap_in /input_pointcloud" />
 
   <!-- Graph based planning -->
   <node pkg="gbplanner" type="gbplanner_node" name="gbplanner_node" output="screen" launch-prefix="$(arg launch_prefix)">
     <remap from="odometry" to="$(arg odometry_topic)" />
-    <remap from="/pointcloud" to="/D01/horiz/os_cloud_node/points" />
+    <!-- <remap from="/pointcloud" to="/D01/horiz/os_cloud_node/points" /> -->
+    <remap from="/pointcloud" to="/D01/octomap_in" />
     <rosparam command="load" file="$(arg gbplanner_config_file)" />
     <rosparam command="load" file="$(arg map_config_file)" />
   </node>
@@ -50,6 +52,7 @@
     <remap from="planner_server" to="gbplanner" />
     <remap from="planner_homing_server" to="gbplanner/homing" />
     <remap from="odometry" to="$(arg odometry_topic)"/>
+    <remap from="pci_command_path" to = "/D01/planned_path"/>
     <rosparam command="load" file="$(arg pci_file)" />
   </node>
 

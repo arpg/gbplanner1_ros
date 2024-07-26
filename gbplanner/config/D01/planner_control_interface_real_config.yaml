@@ -1,10 +1,11 @@
 run_mode: kReal
 trigger_mode: kManual
+output_type: kTopic
 init_motion_enable: true
 planner_trigger_lead_time: 1.5
 smooth_heading_enable: true
 init_motion:
-  z_takeoff: 2.0
+  z_takeoff: 1.4
   z_drop: 0.5
   x_forward: 3.0
 

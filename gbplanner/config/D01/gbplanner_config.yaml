@@ -6,14 +6,15 @@
 # for the mine: 1.8-2.0
 #-------------------------------------------------------------------------------
 RobotParams:
-  type:               D01
-  size:               [1.1, 1.1, 0.4]
-  size_extension_min: [0.1, 0.1, 0.2] # minimum extension allowed to operate.
-  size_extension:     [0.4, 0.4, 0.4]
+  type:               kLeggedRobot    # Options are kAerialRobot(default) or kLeggedRobot
+  size:               [0.3, 0.3, 0.1]
+  size_extension_min: [0.0, 0.0, 0.0] # minimum extension allowed to operate.
+  # size_extension:     [0.4, 0.4, 0.4]
+  size_extension:     [0.2, 0.2, 0.2]
   center_offset:      [0.0, 0.0, 0.0]
   relax_ratio:        0.5
-  bound_mode:         kExtendedBound
-  safety_extension:  [2.0, 2.0, 1.0]
+  bound_mode:         kNoBound #kExtendedBound
+  safety_extension:  [1.0, 1.0, 1.0]
 #-------------------------------------------------------------------------------
 # SENSOR CONFIGURATION
 #  sensor_list: Define a set of sensors relevant to the exploration task.
@@ -24,7 +25,7 @@ SensorParams:
   sensor_list:      ["VLP16"]
   VLP16:
     type:           kLidar
-    max_range:      20.0
+    max_range:      6.0
     center_offset:  [0.0, 0.0, 0.0]
     rotations:      [0.0, 0.0, 0.0]
     fov:            [rad(2*pi), rad(pi/18)]
@@ -92,7 +93,7 @@ RandomSamplerParams:
 # exp_sensor_list: sensors used to compute exploration gain.
 #-------------------------------------------------------------------------------
 PlanningParams:
-  type:             kBasicExploration
+  type:             kNarrowEnvExploration #changed this  to kBasicExploration
   rr_mode:          kGraph
   bound_mode:       kExtremeBound
   exp_sensor_list:  ["VLP16"]
@@ -115,14 +116,14 @@ PlanningParams:
   occupied_voxel_gain: 0.0
   free_voxel_gain:  2.0 #prefer directions towards more free voxels in case of the dead-end
   unknown_voxel_gain: 50.0
-  traverse_length_max: 7.0
+  traverse_length_max: 4 #4
   traverse_time_max: 40.0
   augment_free_voxels_time: 1
   free_frustum_before_planning: false
   auto_homing_enable: false
   time_budget_limit: 600
   homing_backward: true
-  geofence_checking_enable: true
+  geofence_checking_enable: false
   path_safety_enhance_enable: true
 
 GeofenceParams:
