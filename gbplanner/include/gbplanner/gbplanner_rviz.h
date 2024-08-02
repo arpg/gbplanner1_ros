@@ -20,6 +20,8 @@
 #include "gbplanner/rrg_base.h"
 #include "gbplanner/trajectory.h"
 
+#include "planner_msgs/Graph.h"
+
 namespace explorer {
 namespace gbplanner {
 class Visualization {
@@ -30,6 +32,8 @@ class Visualization {
                           BoundedSpaceParams &local_ws);
   // Visualize a graph including its vertices, egdes, and heading angles.
   void visualizeGraph(const std::shared_ptr<GraphManager> graph_manager);
+  //Alec adding graph publisher
+  void publish_graph(const std::shared_ptr<GraphManager> graph_manager);
   // Visualize a subset of failed edges to understand why the planning failed.
   void visualizeFailedEdges(std::shared_ptr<SampleStatistic> ss);
   // Visualize bounding box of the robot.
@@ -120,6 +124,9 @@ class Visualization {
   ros::Publisher cost_map_pub_;
 
   ros::Publisher path_pub_;
+  
+  // Alec Add
+  ros::Publisher full_graph_pub_;
 
   std::string world_frame_id = "world";
   const double ws_lifetime = 0;  // infinite

@@ -6,3 +6,6 @@ int32 num_unknown_voxels
 int32 num_occupied_voxels
 int32 num_free_voxels
 bool is_frontier
+
+#alec adding this
+float32 accumulated_gain

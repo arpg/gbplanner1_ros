@@ -684,6 +684,7 @@ Rrg::GraphStatus Rrg::evaluateGraph() {
 
   // Visualization at the end.
   visualization_->visualizeShortestPaths(local_graph_, local_graph_rep_);
+  visualization_->publish_graph(local_graph_);
   if (best_gain > 0) {
     visualization_->visualizeBestPaths(local_graph_, local_graph_rep_, 10,
                                        best_path_id);

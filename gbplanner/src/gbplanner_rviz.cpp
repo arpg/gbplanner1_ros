@@ -1,7 +1,6 @@
 #include "gbplanner/gbplanner_rviz.h"
 
 #include <tf/transform_datatypes.h>
-
 namespace explorer {
 namespace gbplanner {
 Visualization::Visualization(const ros::NodeHandle &nh,
@@ -56,6 +55,8 @@ Visualization::Visualization(const ros::NodeHandle &nh,
   path_pub_ =
       nh_.advertise<visualization_msgs::MarkerArray>("vis/alternate_path", 10);
   best_path_id_ = 0;
+  full_graph_pub_ = 
+      nh_.advertise<planner_msgs::Graph>("gbplanner/graph", 10);
 }
 
 void Visualization::visualizeWorkspace(StateVec &state,
@@ -164,13 +165,73 @@ void Visualization::visualizeWorkspace(StateVec &state,
   planning_workspace_pub_.publish(marker_array);
 }
 
+void Visualization::publish_graph(
+    const std::shared_ptr<GraphManager> graph_manager) {
+
+  std::shared_ptr<Graph> g = graph_manager->graph_;
+  std::unordered_map<int, Vertex *> &v_map = graph_manager->vertices_map_;
+  
+  ROS_INFO("\nPublishing Graph\n");
+  if (graph_manager->getNumVertices() == 0) return;
+  ROS_INFO("graph size is not 0");
+
+  planner_msgs::Graph graph_msg;
+  graph_msg.header.stamp = ros::Time::now();
+  graph_msg.header.frame_id = world_frame_id;
+
+  // Add vertices to graph_msg
+  std::pair<Graph::GraphType::vertex_iterator,
+            Graph::GraphType::vertex_iterator>
+      vi;
+  g->getVertexIterator(vi);
+  for (Graph::GraphType::vertex_iterator it = vi.first; it != vi.second; ++it) {
+    int id = g->getVertexProperty(it);
+    planner_msgs::Vertex vertex_msg;
+    vertex_msg.id = id;
+    vertex_msg.pose.position.x = v_map[id]->state[0];
+    vertex_msg.pose.position.y = v_map[id]->state[1];
+    vertex_msg.pose.position.z = v_map[id]->state[2];
+
+    // Assuming you have these values in your Vertex class
+    vertex_msg.num_unknown_voxels = v_map[id]->vol_gain.num_unknown_voxels;
+    vertex_msg.num_occupied_voxels = v_map[id]->vol_gain.num_occupied_voxels;
+    vertex_msg.num_free_voxels = v_map[id]->vol_gain.num_free_voxels;
+    vertex_msg.is_frontier = v_map[id]->vol_gain.is_frontier;
+    vertex_msg.accumulated_gain =  v_map[id]->vol_gain.accumulative_gain;
+
+    ROS_INFO("Accumulated Gain: %s", std::to_string(v_map[id]->vol_gain.accumulative_gain).c_str());
+    graph_msg.vertices.push_back(vertex_msg);
+  }
+
+  // Add edges to graph_msg
+  std::pair<Graph::GraphType::edge_iterator, Graph::GraphType::edge_iterator>
+      ei;
+  g->getEdgeIterator(ei);
+  for (Graph::GraphType::edge_iterator it = ei.first; it != ei.second; ++it) {
+    int src_id, tgt_id;
+    double weight;
+    std::tie(src_id, tgt_id, weight) = g->getEdgeProperty(it);
+
+    planner_msgs::Edge edge_msg;
+    edge_msg.source_id = src_id;
+    edge_msg.target_id = tgt_id;
+    edge_msg.weight = static_cast<float>(weight);
+
+    graph_msg.edges.push_back(edge_msg);
+  }
+
+  full_graph_pub_.publish(graph_msg);
+
+}
+
 void Visualization::visualizeGraph(
     const std::shared_ptr<GraphManager> graph_manager) {
   std::shared_ptr<Graph> g = graph_manager->graph_;
   std::unordered_map<int, Vertex *> &v_map = graph_manager->vertices_map_;
-
+  ROS_INFO("\Test visualizeGraph\n");
   if (graph_manager->getNumVertices() == 0) return;
   if (planning_graph_pub_.getNumSubscribers() < 1) return;
+  ROS_INFO("\Test again\n");
 
   visualization_msgs::MarkerArray marker_array;
 
@@ -814,6 +875,8 @@ void Visualization::visualizeShortestPaths(
     marker.pose.position.y = v_map[id]->state[1];
     marker.pose.position.z = v_map[id]->state[2] + 0.1;
     // Show vertex gains.
+    // ROS_INFO("Accumulated Gain: %s", std::to_string(v_map[id]->vol_gain.accumulative_gain).c_str());
+
     std::string text_display =
         std::to_string(v_map[id]->id) + "," + std::to_string(v_map[id]->dm) +
         "," + std::to_string(v_map[id]->vol_gain.accumulative_gain) + "," +
@@ -821,6 +884,7 @@ void Visualization::visualizeShortestPaths(
         std::to_string(v_map[id]->vol_gain.num_unknown_voxels) + "," +
         std::to_string(v_map[id]->vol_gain.num_free_voxels) + "," +
         std::to_string(v_map[id]->vol_gain.num_occupied_voxels);
+      
 
     marker.text = text_display;
     marker.id = marker_id++;
