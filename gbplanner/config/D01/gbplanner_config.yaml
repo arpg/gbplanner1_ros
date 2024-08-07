@@ -39,7 +39,7 @@ SensorParams:
 BoundedSpaceParams:
   Global:
     type:           kCuboid
-    min_val:        [-0.0 , -200.0, 0.0]
+    min_val:        [-300.0 , -200.0, 0.0]
     max_val:        [500.0, 200.0, 4.0]
   Local:
     type:           kCuboid

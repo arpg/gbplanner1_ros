@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /MarkerArray2/Status1
+        - /MarkerArray5
       Splitter Ratio: 0.5
     Tree Height: 378
   - Class: rviz/Selection
@@ -68,8 +69,7 @@ Visualization Manager:
       Marker Topic: /vis/best_planning_paths
       Name: MarkerArray
       Namespaces:
-        best_path: true
-        vertices: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -229,6 +229,14 @@ Visualization Manager:
       Topic: /D01/planned_path
       Unreliable: false
       Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /n_diff_points
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -257,7 +265,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 7.354244709014893
+      Distance: 12.960694313049316
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -272,10 +280,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7253984808921814
+      Pitch: 0.8953983783721924
       Target Frame: D01/horiz_ouster_imu
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.2053966522216797
+      Yaw: 3.2203969955444336
     Saved: ~
 Window Geometry:
   Displays:
