@@ -34,6 +34,8 @@ Gbplanner::Gbplanner(const ros::NodeHandle &nh,
       "gbplanner/load_graph", &Gbplanner::plannerLoadGraphCallback, this);
   planner_save_graph_service_ = nh_.advertiseService(
       "gbplanner/save_graph", &Gbplanner::plannerSaveGraphCallback, this);
+  planner_evaluate_graph_service_ = nh_.advertiseService(
+      "gbplanner/evaluate_graph", &Gbplanner::plannerEvaluateGraphCallback, this);
 
   pose_subscriber_ = nh_.subscribe("pose", 100, &Gbplanner::poseCallback, this);
   pose_stamped_subscriber_ =
@@ -55,6 +57,14 @@ bool Gbplanner::plannerSaveGraphCallback(
     planner_msgs::planner_string_trigger::Request &req,
     planner_msgs::planner_string_trigger::Response &res) {
   res.success = rrg_->saveGraph(req.message);
+  return true;
+}
+
+bool Gbplanner::plannerEvaluateGraphCallback(
+    planner_msgs::planner_string_trigger::Request &req,
+    planner_msgs::planner_string_trigger::Response &res) {
+  ROS_INFO("Planner evaluate graph service called!");
+  res.success = rrg_->evaluateGraph();
   return true;
 }
 
