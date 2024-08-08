@@ -42,6 +42,7 @@ class Gbplanner {
   ros::ServiceServer planner_load_graph_service_;
   ros::ServiceServer planner_save_graph_service_;
   ros::ServiceServer planner_evaluate_graph_service_;
+  ros::ServiceServer planner_count_diffused_voxels_service_;
 
   ros::Subscriber pose_subscriber_;
   ros::Subscriber pose_stamped_subscriber_;
@@ -83,6 +84,10 @@ class Gbplanner {
       planner_msgs::planner_string_trigger::Response& res);
 
   bool plannerEvaluateGraphCallback(
+      planner_msgs::planner_string_trigger::Request& req,
+      planner_msgs::planner_string_trigger::Response& res);
+
+  bool plannerCountDiffusedVoxelsCallback(
       planner_msgs::planner_string_trigger::Request& req,
       planner_msgs::planner_string_trigger::Response& res);
 

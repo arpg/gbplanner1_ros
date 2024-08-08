@@ -94,6 +94,14 @@ class Rrg {
   // Compute exploration gain for each vertex in the graph/tree.
   void computeExplorationGain(bool only_leaf_vertices = false);
 
+  // [Still a WIP] Compute exploration gain for diffused voxels only
+  void computeExplorationGainDiffusedVoxels(bool only_leaf_vertices = false);
+
+  // Performs ray casting but compares the interescted voxels on the ray to
+  // the base octomap. If the voxel is not in the base map, then it is a
+  // diffused voxel and we count it towards num of diffused voxels
+  void computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, VolumetricGain& vgain);
+
   // Evaluate gains of all vertices and find the best path[s].
   GraphStatus evaluateGraph();
 

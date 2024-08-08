@@ -14,6 +14,10 @@ double MapManagerOctomap::getResolution() const {
 
 bool MapManagerOctomap::getStatus() const { return true; }
 
+bool MapManagerOctomap::isPointInBaseOctomap(const Eigen::Vector3d& pos) const {
+  return octomap_manager_->isPointInBaseOctomap(pos);
+}
+
 MapManagerOctomap::VoxelStatus MapManagerOctomap::convertStatus(
     const volumetric_mapping::OctomapManager::CellStatus& status) const {
   switch (status) {

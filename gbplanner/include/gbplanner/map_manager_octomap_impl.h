@@ -14,6 +14,8 @@ class MapManagerOctomap : MapManager {
 
   double getResolution() const;
   bool getStatus() const;
+  bool isPointInBaseOctomap(const Eigen::Vector3d& pos) const;
+
   VoxelStatus getVoxelStatus(const Eigen::Vector3d& position) const;
   VoxelStatus getRayStatus(const Eigen::Vector3d& view_point,
                            const Eigen::Vector3d& voxel_to_test,

@@ -50,6 +50,7 @@ struct VolumetricGain {
         accumulative_gain(0),
         num_unknown_voxels(0),
         num_free_voxels(0),
+        num_diffused_voxels(0),
         num_occupied_voxels(0) {}
 
   void reset() {
@@ -58,6 +59,7 @@ struct VolumetricGain {
     num_unknown_voxels = 0;
     num_free_voxels = 0;
     num_occupied_voxels = 0;
+    num_diffused_voxels = 0;
     is_frontier = false;
   }
 
@@ -66,12 +68,14 @@ struct VolumetricGain {
   int num_unknown_voxels;
   int num_occupied_voxels;
   int num_free_voxels;
+  int num_diffused_voxels;
 
   bool is_frontier;
 
   void printGain() {
     std::cout << "Gains: " << gain << ", " << num_unknown_voxels << ", "
-              << num_occupied_voxels << ", " << num_free_voxels << std::endl;
+              << num_occupied_voxels << ", " << num_diffused_voxels << ", "
+              << num_free_voxels << std::endl;
   }
 };
 
