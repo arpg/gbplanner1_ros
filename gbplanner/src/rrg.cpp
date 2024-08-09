@@ -1702,7 +1702,6 @@ void Rrg::computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, Volumetri
         if (!map_manager_->isPointInBaseOctomap(voxel)) {
           // If the point is not in the base octomap then it is a diffused point
           if (vs == MapManager::VoxelStatus::kFree) {
-            ROS_INFO("*** Voxel is diffused and free!");
             ++num_diffused_free_voxels;
           }
         }
