@@ -195,6 +195,7 @@ void Visualization::publish_graph(
     // Assuming you have these values in your Vertex class
     vertex_msg.num_unknown_voxels = v_map[id]->vol_gain.num_unknown_voxels;
     vertex_msg.num_occupied_voxels = v_map[id]->vol_gain.num_occupied_voxels;
+    vertex_msg.num_diffused_free_voxels = v_map[id]->vol_gain.num_diffused_free_voxels;
     vertex_msg.num_free_voxels = v_map[id]->vol_gain.num_free_voxels;
     vertex_msg.is_frontier = v_map[id]->vol_gain.is_frontier;
     vertex_msg.accumulated_gain =  v_map[id]->vol_gain.accumulative_gain;
@@ -882,6 +883,7 @@ void Visualization::visualizeShortestPaths(
         "," + std::to_string(v_map[id]->vol_gain.accumulative_gain) + "," +
         std::to_string(v_map[id]->vol_gain.gain) + "," +
         std::to_string(v_map[id]->vol_gain.num_unknown_voxels) + "," +
+        std::to_string(v_map[id]->vol_gain.num_diffused_free_voxels) + "," +
         std::to_string(v_map[id]->vol_gain.num_free_voxels) + "," +
         std::to_string(v_map[id]->vol_gain.num_occupied_voxels);
       

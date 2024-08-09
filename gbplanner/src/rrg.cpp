@@ -1687,7 +1687,7 @@ void Rrg::computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, Volumetri
     map_manager_->getScanStatus(origin, multiray_endpoints, gain_log_tmp,
                                 voxel_log_tmp);
     int num_unknown_voxels = 0, num_free_voxels = 0, num_occupied_voxels = 0;
-    int num_diffused_voxels = 0;
+    int num_diffused_free_voxels = 0;
     // Have to remove those not belong to the local bound.
     // At the same time check if this is frontier.
     for (auto& vl : voxel_log_tmp) {
@@ -1701,17 +1701,20 @@ void Rrg::computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, Volumetri
         // valid voxel.
         if (!map_manager_->isPointInBaseOctomap(voxel)) {
           // If the point is not in the base octomap then it is a diffused point
-          ++num_diffused_voxels;
+          if (vs == MapManager::VoxelStatus::kFree) {
+            ROS_INFO("*** Voxel is diffused and free!");
+            ++num_diffused_free_voxels;
+          }
         }
       }
     }
     gain_log.push_back(std::make_tuple(num_unknown_voxels, num_free_voxels,
-                                       num_occupied_voxels, num_diffused_voxels));
+                                       num_occupied_voxels, num_diffused_free_voxels));
   }
-  // Update the gain ONLY for number of diffused voxels
+  // Update the gain ONLY for number of diffused free voxels
   for (int i = 0; i < gain_log.size(); ++i) {
-    int num_diffused_voxels = std::get<3>(gain_log[i]);
-    vgain.num_diffused_voxels += num_diffused_voxels;
+    int num_diffused_free_voxels = std::get<3>(gain_log[i]);
+    vgain.num_diffused_free_voxels += num_diffused_free_voxels;
   }
   vgain.printGain();
 }
