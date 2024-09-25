@@ -10,3 +10,4 @@ bool is_frontier
 
 #alec adding this
 float32 accumulated_gain
+float32 omega_gain

@@ -1597,15 +1597,44 @@ void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
   ros::Time tim;
   START_TIMER(tim);
   // Compute number of diffused voxels for each vertex in the graph
+  //get the max accumulated gain
+  double max_EG = 100; // this is a placeholder, should be max accumulated gain in the graph
+  for (const auto& v : local_graph_->vertices_map_) {
+    if (planning_params_.use_ray_model_for_volumetric_gain) {
+      if ((!only_leaf_vertices) || (v.second->is_leaf_vertex)){
+        max_EG = std::max(max_EG,v.second->vol_gain.accumulative_gain);
+      }
+    }
+  ROS_INFO("\n\nCurrent max_EG: %f", max_EG);
+  double delta = 0.3;
+  double pred_gain = 0.0; 
   for (const auto& v : local_graph_->vertices_map_) {
     bool viz_en = false;
     if (v.second->id == id_viz) viz_en = true;
     if (planning_params_.use_ray_model_for_volumetric_gain) {
       if ((!only_leaf_vertices) || (v.second->is_leaf_vertex))
-        computeVolumetricGainDiffusedVoxelsRayModel(v.second->state, v.second->vol_gain);
+        if (v.second->vol_gain.is_frontier){
+          //only compute this over frontier nodes
+          computeVolumetricGainDiffusedVoxelsRayModel(v.second->state, v.second->vol_gain);
+          //Alec: Need to update the local_graph after doing the ray casting
+          //I had this wrong service call this is fine
+          // v.second->vol_gain.num_diffused_free_voxels = 10; // set to 10 for testing, the ocmpute function will return an int if this works
+          //update the equation for omega gain
+          if (v.second->vol_gain.num_unknown_voxels >0){
+            //cap the num diffused voxels at the num_unkown voxels
+            if (v.second->vol_gain.num_diffused_free_voxels > v.second->vol_gain.num_unknown_voxels){
+              v.second->vol_gain.num_diffused_free_voxels = v.second->vol_gain.num_unknown_voxels;
+            }
+            pred_gain = delta*max_EG *(((2.0* v.second->vol_gain.num_diffused_free_voxels)/v.second->vol_gain.num_unknown_voxels)-1.0);
+            v.second->vol_gain.omega_gain = pred_gain;
+            ROS_INFO("*** Current pred_gain: %f", pred_gain);
+          }
+        }
+      }
     }
   }
   stat_->compute_exp_gain_time = GET_ELAPSED_TIME(tim);
+  visualization_->publish_graph(local_graph_); // alec added to publish graph after running the exploration gain compute
 }
 
 void Rrg::computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, VolumetricGain& vgain) {
@@ -1698,14 +1727,21 @@ void Rrg::computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, Volumetri
         if ((voxel[j] < bound_min[j]) || (voxel[j] > bound_max[j])) break;
       }
       if (j == 3) {
-        // valid voxel.
-        if (!map_manager_->isPointInBaseOctomap(voxel)) {
-          // If the point is not in the base octomap then it is a diffused point
-          if (vs == MapManager::VoxelStatus::kFree) {
-            ROS_INFO("*** Voxel is diffused and free!");
+        if (vs == MapManager::VoxelStatus::kFree) {
+          //check if the voxel is free
+          if (!map_manager_->isPointInBaseOctomap(voxel)) {
+            //if the voxel is not in the basemap
             ++num_diffused_free_voxels;
           }
         }
+        // valid voxel.
+        // if (!map_manager_->isPointInBaseOctomap(voxel)) {
+        //   // If the point is not in the base octomap then it is a diffused point
+        //   if (vs == MapManager::VoxelStatus::kFree) {
+        //     // ROS_INFO("*** Voxel is diffused and free!");
+        //     ++num_diffused_free_voxels;
+        //   }
+        // }
       }
     }
     gain_log.push_back(std::make_tuple(num_unknown_voxels, num_free_voxels,
@@ -1714,7 +1750,7 @@ void Rrg::computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, Volumetri
   // Update the gain ONLY for number of diffused free voxels
   for (int i = 0; i < gain_log.size(); ++i) {
     int num_diffused_free_voxels = std::get<3>(gain_log[i]);
-    vgain.num_diffused_free_voxels += num_diffused_free_voxels;
+    vgain.num_diffused_free_voxels = num_diffused_free_voxels;
   }
   vgain.printGain();
 }
