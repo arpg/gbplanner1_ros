@@ -201,8 +201,8 @@ void Visualization::publish_graph(
     vertex_msg.accumulated_gain =  v_map[id]->vol_gain.accumulative_gain;
     vertex_msg.omega_gain = v_map[id]->vol_gain.omega_gain;
 
-    ROS_INFO("Accumulated Gain: %s", std::to_string(v_map[id]->vol_gain.accumulative_gain).c_str());
-    ROS_INFO("Omega Gain: %s", std::to_string(v_map[id]->vol_gain.omega_gain).c_str());
+    // ROS_INFO("Accumulated Gain: %s", std::to_string(v_map[id]->vol_gain.accumulative_gain).c_str());
+    // ROS_INFO("Omega Gain: %s", std::to_string(v_map[id]->vol_gain.omega_gain).c_str());
     graph_msg.vertices.push_back(vertex_msg);
   }
 
