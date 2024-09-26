@@ -10,7 +10,7 @@ treat_unknown_as_occupied: False
 change_detection_enabled: False
 visualize_min_z: -1.0
 visualize_max_z: 1.0
-sensor_max_range: 7.0
+sensor_max_range: 6.0
 map_publish_frequency: 1.0
 resume_from_current: True
 

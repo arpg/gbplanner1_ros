@@ -1616,12 +1616,11 @@ void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
         if (v.second->vol_gain.is_frontier){
           //only compute this over frontier nodes
           computeVolumetricGainDiffusedVoxelsRayModel(v.second->state, v.second->vol_gain);
-          //Alec: Need to update the local_graph after doing the ray casting
-          //I had this wrong service call this is fine
+
           // v.second->vol_gain.num_diffused_free_voxels = 10; // set to 10 for testing, the ocmpute function will return an int if this works
           //update the equation for omega gain
           if (v.second->vol_gain.num_unknown_voxels >0){
-            //cap the num diffused voxels at the num_unkown voxels
+            // cap the num diffused voxels at the num_unknown voxels
             if (v.second->vol_gain.num_diffused_free_voxels > v.second->vol_gain.num_unknown_voxels){
               v.second->vol_gain.num_diffused_free_voxels = v.second->vol_gain.num_unknown_voxels;
             }
