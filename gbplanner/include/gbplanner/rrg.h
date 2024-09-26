@@ -94,7 +94,7 @@ class Rrg {
   // Compute exploration gain for each vertex in the graph/tree.
   void computeExplorationGain(bool only_leaf_vertices = false);
 
-  // [Still a WIP] Compute exploration gain for diffused voxels only
+  // Compute exploration gain for diffused voxels only
   void computeExplorationGainDiffusedVoxels(bool only_leaf_vertices = false);
 
   // Performs ray casting but compares the interescted voxels on the ray to

@@ -1596,7 +1596,6 @@ void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
   const int id_viz = 20;
   ros::Time tim;
   START_TIMER(tim);
-  // Compute number of diffused voxels for each vertex in the graph
   //get the max accumulated gain
   double max_EG = 100; // this is a placeholder, should be max accumulated gain in the graph
   for (const auto& v : local_graph_->vertices_map_) {
@@ -1605,9 +1604,11 @@ void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
         max_EG = std::max(max_EG,v.second->vol_gain.accumulative_gain);
       }
     }
+  }
   ROS_INFO("\n\nCurrent max_EG: %f", max_EG);
   double delta = 0.3;
   double pred_gain = 0.0; 
+  // Compute number of diffused voxels for each vertex in the graph
   for (const auto& v : local_graph_->vertices_map_) {
     bool viz_en = false;
     if (v.second->id == id_viz) viz_en = true;
@@ -1617,11 +1618,11 @@ void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
           //only compute this over frontier nodes
           computeVolumetricGainDiffusedVoxelsRayModel(v.second->state, v.second->vol_gain);
 
-          // v.second->vol_gain.num_diffused_free_voxels = 10; // set to 10 for testing, the ocmpute function will return an int if this works
-          //update the equation for omega gain
+          // Update the equation for omega gain
           if (v.second->vol_gain.num_unknown_voxels >0){
-            // cap the num diffused voxels at the num_unknown voxels
-            if (v.second->vol_gain.num_diffused_free_voxels > v.second->vol_gain.num_unknown_voxels){
+            // Cap the num diffused voxels at the num_unknown voxels
+            if (v.second->vol_gain.num_diffused_free_voxels > v.second->vol_gain.num_unknown_voxels) {
+              // TODO should we keep this conditional check in place?
               v.second->vol_gain.num_diffused_free_voxels = v.second->vol_gain.num_unknown_voxels;
             }
             pred_gain = delta*max_EG *(((2.0* v.second->vol_gain.num_diffused_free_voxels)/v.second->vol_gain.num_unknown_voxels)-1.0);
@@ -1631,7 +1632,6 @@ void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
         }
       }
     }
-  }
   stat_->compute_exp_gain_time = GET_ELAPSED_TIME(tim);
   visualization_->publish_graph(local_graph_); // alec added to publish graph after running the exploration gain compute
 }
