@@ -1592,6 +1592,160 @@ void Rrg::computeExplorationGain(bool only_leaf_vertices) {
   stat_->compute_exp_gain_time = GET_ELAPSED_TIME(tim);
 }
 
+void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
+  const int id_viz = 20;
+  ros::Time tim;
+  START_TIMER(tim);
+  //get the max accumulated gain
+  double max_EG = 100; // this is a placeholder, should be max accumulated gain in the graph
+  for (const auto& v : local_graph_->vertices_map_) {
+    if (planning_params_.use_ray_model_for_volumetric_gain) {
+      if ((!only_leaf_vertices) || (v.second->is_leaf_vertex)){
+        max_EG = std::max(max_EG,v.second->vol_gain.accumulative_gain);
+      }
+    }
+  }
+  ROS_INFO("\n\nCurrent max_EG: %f", max_EG);
+  double delta = 0.3;
+  double pred_gain = 0.0; 
+  // Compute number of diffused voxels for each vertex in the graph
+  for (const auto& v : local_graph_->vertices_map_) {
+    bool viz_en = false;
+    if (v.second->id == id_viz) viz_en = true;
+    if (planning_params_.use_ray_model_for_volumetric_gain) {
+      if ((!only_leaf_vertices) || (v.second->is_leaf_vertex))
+        if (v.second->vol_gain.is_frontier){
+          //only compute this over frontier nodes
+          computeVolumetricGainDiffusedVoxelsRayModel(v.second->state, v.second->vol_gain);
+
+          // Update the equation for omega gain
+          if (v.second->vol_gain.num_unknown_voxels >0){
+            // Cap the num diffused voxels at the num_unknown voxels
+            if (v.second->vol_gain.num_diffused_free_voxels > v.second->vol_gain.num_unknown_voxels) {
+              // TODO should we keep this conditional check in place?
+              v.second->vol_gain.num_diffused_free_voxels = v.second->vol_gain.num_unknown_voxels;
+            }
+            pred_gain = delta*max_EG *(((2.0* v.second->vol_gain.num_diffused_free_voxels)/v.second->vol_gain.num_unknown_voxels)-1.0);
+            v.second->vol_gain.omega_gain = pred_gain;
+            ROS_INFO("*** Current pred_gain: %f", pred_gain);
+          }
+        }
+      }
+    }
+  stat_->compute_exp_gain_time = GET_ELAPSED_TIME(tim);
+  visualization_->publish_graph(local_graph_); // alec added to publish graph after running the exploration gain compute
+}
+
+void Rrg::computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, VolumetricGain& vgain) {
+  // Scan winthin a local space and sensor range.
+  // Compute the local bound.
+  Eigen::Vector3d bound_min;
+  Eigen::Vector3d bound_max;
+  if (local_space_params_.type == BoundedSpaceType::kSphere) {
+    for (int i = 0; i < 3; ++i) {
+      bound_min[i] = root_vertex_->state[i] - local_space_params_.radius -
+                     local_space_params_.radius_extension;
+      bound_max[i] = root_vertex_->state[i] + local_space_params_.radius +
+                     local_space_params_.radius_extension;
+    }
+  } else if (local_space_params_.type == BoundedSpaceType::kCuboid) {
+    for (int i = 0; i < 3; ++i) {
+      bound_min[i] = root_vertex_->state[i] + local_space_params_.min_val[i] +
+                     local_space_params_.min_extension[i];
+      bound_max[i] = root_vertex_->state[i] + local_space_params_.max_val[i] +
+                     local_space_params_.max_extension[i];
+    }
+  } else {
+    PLANNER_ERROR("Local space is not defined.");
+    return;
+  }
+
+  // Refine the bound with global bound.
+  if (global_space_params_.type == BoundedSpaceType::kSphere) {
+    for (int i = 0; i < 3; i++) {
+      bound_min[i] =
+          std::max(bound_min[i], -global_space_params_.radius -
+                                     global_space_params_.radius_extension);
+      bound_max[i] =
+          std::min(bound_max[i], global_space_params_.radius +
+                                     global_space_params_.radius_extension);
+    }
+  } else if (global_space_params_.type == BoundedSpaceType::kCuboid) {
+    for (int i = 0; i < 3; i++) {
+      bound_min[i] =
+          std::max(bound_min[i], global_space_params_.min_val[i] +
+                                     global_space_params_.min_extension[i]);
+      bound_max[i] =
+          std::min(bound_max[i], global_space_params_.max_val[i] +
+                                     global_space_params_.max_extension[i]);
+    }
+  } else {
+    PLANNER_ERROR("Global space is not defined.");
+    return;
+  }
+
+  /**
+   * NOTE: It might seem a little non-sensical to have some of these data structures
+   * the way they are. These are copied from the original function so they are
+   * preserved to avoid bugs if possible. We can simplify later.
+   */
+  std::vector<std::tuple<int, int, int, int>> gain_log;
+  std::vector<std::pair<Eigen::Vector3d, MapManager::VoxelStatus>> voxel_log;
+  int raw_unk_voxels_count = 0;
+  // Compute for each sensor in the exploration sensor list.
+  // However, this would be a problem if those sensors have significant overlap.
+  for (int ind = 0; ind < planning_params_.exp_sensor_list.size(); ++ind) {
+    std::string sensor_name = planning_params_.exp_sensor_list[ind];
+    // Refine the bound within an effective range.
+    for (int i = 0; i < 3; i++) {
+      bound_min[i] =
+          std::max(bound_min[i],
+                   state[i] - sensor_params_.sensor[sensor_name].max_range);
+      bound_max[i] =
+          std::min(bound_max[i],
+                   state[i] + sensor_params_.sensor[sensor_name].max_range);
+    }
+
+    Eigen::Vector3d origin(state[0], state[1], state[2]);
+    std::tuple<int, int, int> gain_log_tmp;
+    std::vector<std::pair<Eigen::Vector3d, MapManager::VoxelStatus>> voxel_log_tmp;
+    std::vector<Eigen::Vector3d> multiray_endpoints;
+    sensor_params_.sensor[sensor_name].getFrustumEndpoints(state,
+                                                           multiray_endpoints);
+    map_manager_->getScanStatus(origin, multiray_endpoints, gain_log_tmp,
+                                voxel_log_tmp);
+    int num_unknown_voxels = 0, num_free_voxels = 0, num_occupied_voxels = 0;
+    int num_diffused_free_voxels = 0;
+    // Have to remove those not belong to the local bound.
+    // At the same time check if this is frontier.
+    for (auto& vl : voxel_log_tmp) {
+      Eigen::Vector3d voxel = vl.first;
+      MapManager::VoxelStatus vs = vl.second;
+      int j = 0;
+      for (j = 0; j < 3; j++) {
+        if ((voxel[j] < bound_min[j]) || (voxel[j] > bound_max[j])) break;
+      }
+      if (j == 3) {
+        if (vs == MapManager::VoxelStatus::kFree) {
+          //check if the voxel is free
+          if (!map_manager_->isPointInBaseOctomap(voxel)) {
+            //if the voxel is not in the basemap
+            ++num_diffused_free_voxels;
+          }
+        }
+      }
+    }
+    gain_log.push_back(std::make_tuple(num_unknown_voxels, num_free_voxels,
+                                       num_occupied_voxels, num_diffused_free_voxels));
+  }
+  // Update the gain ONLY for number of diffused free voxels
+  for (int i = 0; i < gain_log.size(); ++i) {
+    int num_diffused_free_voxels = std::get<3>(gain_log[i]);
+    vgain.num_diffused_free_voxels = num_diffused_free_voxels;
+  }
+  vgain.printGain();
+}
+
 void Rrg::computeVolumetricGain(StateVec& state, VolumetricGain& vgain,
                                 bool vis_en) {
   vgain.reset();

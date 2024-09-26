@@ -36,6 +36,8 @@ Gbplanner::Gbplanner(const ros::NodeHandle &nh,
       "gbplanner/save_graph", &Gbplanner::plannerSaveGraphCallback, this);
   planner_evaluate_graph_service_ = nh_.advertiseService(
       "gbplanner/evaluate_graph", &Gbplanner::plannerEvaluateGraphCallback, this);
+  planner_count_diffused_voxels_service_ = nh_.advertiseService(
+      "gbplanner/diffused_vxls", &Gbplanner::plannerCountDiffusedVoxelsCallback, this);
 
   pose_subscriber_ = nh_.subscribe("pose", 100, &Gbplanner::poseCallback, this);
   pose_stamped_subscriber_ =
@@ -65,6 +67,13 @@ bool Gbplanner::plannerEvaluateGraphCallback(
     planner_msgs::planner_string_trigger::Response &res) {
   ROS_INFO("Planner evaluate graph service called!");
   res.success = rrg_->evaluateGraph();
+  return true;
+}
+
+bool Gbplanner::plannerCountDiffusedVoxelsCallback(
+    planner_msgs::planner_string_trigger::Request &req,
+    planner_msgs::planner_string_trigger::Response &res) {
+  rrg_->computeExplorationGainDiffusedVoxels();
   return true;
 }
 

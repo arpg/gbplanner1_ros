@@ -25,7 +25,7 @@ SensorParams:
   sensor_list:      ["VLP16"]
   VLP16:
     type:           kLidar
-    max_range:      6.0
+    max_range:      3.0 #reduced this to match the diffusion range
     center_offset:  [0.0, 0.0, 0.0]
     rotations:      [0.0, 0.0, 0.0]
     fov:            [rad(2*pi), rad(pi/18)]
@@ -102,7 +102,7 @@ PlanningParams:
   bound_mode:       kExtremeBound
   exp_sensor_list:  ["VLP16"]
   yaw_tangent_correction: true
-  edge_length_min:  0.2
+  edge_length_min:  1 #changed from .2
   edge_length_max:  5.0
   edge_overshoot:   0.0
   num_vertices_max: 500
@@ -110,7 +110,7 @@ PlanningParams:
   num_loops_cutoff: 2000
   num_loops_max:    20000
   nearest_range:    3.0
-  nearest_range_min: 0.35 # >= edge_length_min
+  nearest_range_min: 1 # >= edge_length_min, changed from 0.35
   nearest_range_max: 5.0 # <= edge_length_max
   use_current_state: true
   use_ray_model_for_volumetric_gain: true
