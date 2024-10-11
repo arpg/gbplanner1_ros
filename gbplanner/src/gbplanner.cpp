@@ -39,6 +39,9 @@ Gbplanner::Gbplanner(const ros::NodeHandle &nh,
   planner_count_diffused_voxels_service_ = nh_.advertiseService(
       "gbplanner/diffused_vxls", &Gbplanner::plannerCountDiffusedVoxelsCallback, this);
 
+  planner_client_start_planner = nh_.serviceClient<std_srvs::Trigger>(
+      "/planner_control_interface/std_srvs/automatic_planning");
+
   pose_subscriber_ = nh_.subscribe("pose", 100, &Gbplanner::poseCallback, this);
   pose_stamped_subscriber_ =
       nh_.subscribe("pose_stamped", 100, &Gbplanner::poseStampedCallback, this);
@@ -74,6 +77,20 @@ bool Gbplanner::plannerCountDiffusedVoxelsCallback(
     planner_msgs::planner_string_trigger::Request &req,
     planner_msgs::planner_string_trigger::Response &res) {
   rrg_->computeExplorationGainDiffusedVoxels();
+  rrg_->recomputeBestVertexWithOmegaGain();
+  // rrg_->getBestPath_diffusion();
+  ROS_INFO("best path Ran");
+  // TODO - make a new best path method without header frame id and status
+  // res.path = rrg_->getBestPath(req.header.frame_id, res.status);
+  
+  // std_srvs::Trigger srv;
+  // if (!planner_client_start_planner.call(srv)) {
+  //   ROS_ERROR("[plannerCountDiffusedVoxelsCallback] Planner service call failed: %s",
+  //             planner_client_start_planner.getService().c_str());
+  // }
+  // ROS_ERROR("[plannerCountDiffusedVoxelsCallback] Planner service call MAYBE SUCCESS?",
+
+  res.success = true;
   return true;
 }
 

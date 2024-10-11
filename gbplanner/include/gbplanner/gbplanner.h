@@ -49,6 +49,7 @@ class Gbplanner {
   ros::Subscriber odometry_subscriber_;
   ros::Subscriber robot_status_subcriber_;
   ros::ServiceClient map_save_service_;
+  ros::ServiceClient planner_client_start_planner;
 
   gbplanner::Rrg* rrg_;
 

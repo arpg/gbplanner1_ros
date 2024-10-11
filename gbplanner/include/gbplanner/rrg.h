@@ -102,6 +102,9 @@ class Rrg {
   // diffused voxel and we count it towards num of diffused voxels
   void computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, VolumetricGain& vgain);
 
+  // Use the omega gain to find the new best vertex among the froniter vertices
+  void recomputeBestVertexWithOmegaGain();
+
   // Evaluate gains of all vertices and find the best path[s].
   GraphStatus evaluateGraph();
 
@@ -137,6 +140,9 @@ class Rrg {
   // Return the best path calculated from the planner.
   std::vector<geometry_msgs::Pose> getBestPath(std::string tgt_frame,
                                                int& status);
+  
+  // return the best path without the frame and status
+  // std::vector<geometry_msgs::Pose> getBestPath_diffusion();
 
   // Search for the homing path from the current state.
   std::vector<geometry_msgs::Pose> searchHomingPath(std::string tgt_frame,
@@ -195,6 +201,10 @@ class Rrg {
   // Sample a vertex from a sampler, for others rather than the local planner.
   bool sampleVertex(RandomSampler& random_sampler, StateVec& root_state,
                     StateVec& sampled_state);
+  
+  // gbplanner2 prject samplecode
+  double projectSample(Eigen::Vector3d& sample,
+                          MapManager::VoxelStatus& voxel_status);
 
   // Volumetric gain calculation using ray casting model.
   void computeVolumetricGainRayModel(StateVec& state, VolumetricGain& vgain,
@@ -203,6 +213,8 @@ class Rrg {
   // Volumetric gain calculation without bound checking.
   void computeVolumetricGainRayModelNoBound(StateVec& state,
                                             VolumetricGain& vgain);
+
+  bool rayCastDownForGroundCheck(StateVec& state);
 
   // Volumetric gain calculation, slower than computeVolumetricGainRayModel.
   void computeVolumetricGain(StateVec& state, VolumetricGain& vgain,

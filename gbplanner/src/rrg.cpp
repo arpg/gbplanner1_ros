@@ -162,6 +162,22 @@ bool Rrg::sampleVertex(StateVec& state) {
                              state[1] + robot_params_.center_offset[1]),
              Eigen::Vector2d(robot_box_size_[0], robot_box_size_[1]))))
       continue;
+    //////////////////////////////////////////////////////////////////////////////////
+    // Alec 
+    //we are going to want to add a check that there is traversable ground under the robot here
+    // it already checks this in the GBPlanner 2 code, so just copy paste?
+    //////////////////////////////////////////////////////////////////////////////////
+    // if there is no ground (False) break
+    if (!(rayCastDownForGroundCheck(state))){
+      // ROS_INFO("\nless args sampler\nno ground for this sample\n");
+      stat_->num_vertices_fail++;
+      random_sampler_.pushSample(state, false);
+      return found;
+    }
+
+    /////////////////////////////////////////////////////////////////////////////
+    //end new code
+    ////////////////////////////////////////////////////////////////////////////
 
     // Check if surrounding area is free.
     if (MapManager::VoxelStatus::kFree ==
@@ -206,6 +222,23 @@ bool Rrg::sampleVertex(RandomSampler& random_sampler, StateVec& root_state,
                global_space_params_.max_val.z() - 0.5 * robot_box_size_.z()) {
       continue;
     }
+    //////////////////////////////////////////////////////////////////////////////////
+    // Alec 
+    //we are going to want to add a check that there is traversable ground under the robot here
+    // it already checks this in the GBPlanner 2 code, so just copy paste?
+    //////////////////////////////////////////////////////////////////////////////////
+    // if there is no ground (False) break
+    if (!(rayCastDownForGroundCheck(sampled_state))){
+      // ROS_INFO("\nno ground for this sample\n");
+      stat_->num_vertices_fail++;
+      random_sampler.pushSample(sampled_state, false);
+      return found;
+    }
+
+    /////////////////////////////////////////////////////////////////////////////
+    //end new code
+    ////////////////////////////////////////////////////////////////////////////
+
     // Check if surrounding area is free.
     if (MapManager::VoxelStatus::kFree == map_manager_->getBoxStatus(
         Eigen::Vector3d(sampled_state[0], sampled_state[1], sampled_state[2]) +
@@ -219,6 +252,9 @@ bool Rrg::sampleVertex(RandomSampler& random_sampler, StateVec& root_state,
   }
   return found;
 }
+
+
+
 
 void Rrg::expandTreeStar(std::shared_ptr<GraphManager> graph_manager,
                          StateVec& new_state, ExpandGraphReport& rep) {
@@ -1615,6 +1651,8 @@ void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
     if (planning_params_.use_ray_model_for_volumetric_gain) {
       if ((!only_leaf_vertices) || (v.second->is_leaf_vertex))
         if (v.second->vol_gain.is_frontier){
+          //print the node
+          // ROS_INFO("")
           //only compute this over frontier nodes
           computeVolumetricGainDiffusedVoxelsRayModel(v.second->state, v.second->vol_gain);
 
@@ -1622,10 +1660,13 @@ void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
           if (v.second->vol_gain.num_unknown_voxels >0){
             // Cap the num diffused voxels at the num_unknown voxels
             if (v.second->vol_gain.num_diffused_free_voxels > v.second->vol_gain.num_unknown_voxels) {
-              // TODO should we keep this conditional check in place?
               v.second->vol_gain.num_diffused_free_voxels = v.second->vol_gain.num_unknown_voxels;
             }
-            pred_gain = delta*max_EG *(((2.0* v.second->vol_gain.num_diffused_free_voxels)/v.second->vol_gain.num_unknown_voxels)-1.0);
+            pred_gain = v.second->vol_gain.accumulative_gain +
+              delta * max_EG * (
+                  (2.0 * v.second->vol_gain.num_diffused_free_voxels) /
+                  v.second->vol_gain.num_unknown_voxels - 1.0
+              );
             v.second->vol_gain.omega_gain = pred_gain;
             ROS_INFO("*** Current pred_gain: %f", pred_gain);
           }
@@ -1634,6 +1675,8 @@ void Rrg::computeExplorationGainDiffusedVoxels(bool only_leaf_vertices) {
     }
   stat_->compute_exp_gain_time = GET_ELAPSED_TIME(tim);
   visualization_->publish_graph(local_graph_); // alec added to publish graph after running the exploration gain compute
+
+  //update path
 }
 
 void Rrg::computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, VolumetricGain& vgain) {
@@ -1744,6 +1787,141 @@ void Rrg::computeVolumetricGainDiffusedVoxelsRayModel(StateVec& state, Volumetri
     vgain.num_diffused_free_voxels = num_diffused_free_voxels;
   }
   vgain.printGain();
+}
+
+// void Rrg::recomputeBestVertexWithOmegaGain() {
+//   // Check if best_vertex_ is null before proceeding
+//   if (best_vertex_ == nullptr) {
+//     ROS_WARN("Best vertex is currently null. Skipping recompute.");
+//     return;
+//   }
+//   // Define a temp Vertex to compare the other frontier vertices to and set
+//   // best vertex to be the one with the largest omega gain
+//   Vertex* best_candidate = best_vertex_;
+//   for (const auto& v : local_graph_->vertices_map_) {
+//     if (v.second->vol_gain.is_frontier) {
+//       if (v.second->vol_gain.omega_gain > best_candidate->vol_gain.omega_gain) {
+//         ROS_INFO("\n Prev omega gain: %f, new omega gain: %f", best_candidate->vol_gain.omega_gain, v.second->vol_gain.omega_gain);
+//         best_candidate = v.second;
+//       }
+//     }
+//   }
+//   // Update best_vertex_ to the best candidate found
+//   ROS_INFO("\n Prev best vertex: %d, new best vertex: %d", best_vertex_->id, best_candidate->id);
+//   best_vertex_ = best_candidate;
+
+//   //update the planned path
+  
+// }
+
+void Rrg::recomputeBestVertexWithOmegaGain() {
+  // Check if best_vertex_ is null before proceeding
+  if (best_vertex_ == nullptr) {
+    ROS_WARN("Best vertex is currently null. Skipping recompute.");
+    return;
+  }
+
+  // Define a temp Vertex to compare the other frontier vertices to and set
+  // best vertex to be the one with the largest omega gain
+  Vertex* best_candidate = best_vertex_;
+  for (const auto& v : local_graph_->vertices_map_) {
+    if (v.second->vol_gain.is_frontier) {
+      if (v.second->vol_gain.omega_gain > best_candidate->vol_gain.omega_gain) {
+        ROS_INFO("\n Prev omega gain: %f, new omega gain: %f", best_candidate->vol_gain.omega_gain, v.second->vol_gain.omega_gain);
+        best_candidate = v.second;
+      }
+    }
+  }
+
+  // Update best_vertex_ to the best candidate found
+  ROS_INFO("\n Prev best vertex: %d, new best vertex: %d", best_vertex_->id, best_candidate->id);
+  best_vertex_ = best_candidate;
+
+  // Update the planned path based on the new best_vertex_
+  std::vector<geometry_msgs::Pose> ret;
+  int id = best_vertex_->id;
+  if (id == 0) {
+    ROS_WARN("Best vertex has id = 0, no path to update.");
+    return;
+  }
+
+  // Get the best path in 3D
+  std::vector<Eigen::Vector3d> best_path_3d;
+  local_graph_->getShortestPath(id, local_graph_rep_, true, best_path_3d);
+  
+  // Estimate the path direction
+  double best_path_direction = Trajectory::estimateDirectionFromPath(best_path_3d);
+  constexpr double kDiffAngleForwardThres = 0.5 * (M_PI + M_PI / 3);
+  
+  // Compare direction to exploring direction
+  bool res = compareAngles(exploring_direction_, best_path_direction, kDiffAngleForwardThres);
+  if (planning_params_.type != PlanningModeType::kVerticalExploration) {
+    if (!res) {
+      ROS_WARN("Changing exploration direction.[%f --> %f]", exploring_direction_, best_path_direction);
+    } else {
+      ROS_INFO("Current exploring direction: %f; New path direction: %f", exploring_direction_, best_path_direction);
+    }
+  }
+
+  // Extract path
+  double traverse_length = 0;
+  double traverse_time = 0;
+  std::vector<StateVec> best_path;
+  local_graph_->getShortestPath(id, local_graph_rep_, true, best_path);
+  Eigen::Vector3d p0(best_path[0][0], best_path[0][1], best_path[0][2]);
+
+  std::vector<Vertex*> best_path_vertices;
+  local_graph_->getShortestPath(best_vertex_->id, local_graph_rep_, true, best_path_vertices);
+
+  const double kLenMin = 1.0;
+  const double kLenMinMin = 0.3;
+  std::vector<Eigen::Vector3d> path_vec;
+  local_graph_->getShortestPath(best_vertex_->id, local_graph_rep_, true, path_vec);
+  double total_len = Trajectory::getPathLength(path_vec);
+  double len_min_thres = kLenMin;
+
+  if (planning_params_.type != PlanningModeType::kVerticalExploration) {
+    len_min_thres = kLenMinMin;
+  }
+  if (total_len <= len_min_thres) {
+    ROS_WARN("Best path is too short.");
+    return;
+  }
+
+  // Build the final path
+  for (int i = 0; i < best_path.size(); ++i) {
+    Eigen::Vector3d p1(best_path[i][0], best_path[i][1], best_path[i][2]);
+    Eigen::Vector3d dir_vec = p1 - p0;
+
+    // Check if the path is safe
+    Eigen::Vector3d p_overshoot = dir_vec.normalized() * planning_params_.edge_overshoot;
+    Eigen::Vector3d p_start = p0 + robot_params_.center_offset - p_overshoot;
+    Eigen::Vector3d p_end = p0 + robot_params_.center_offset + dir_vec + p_overshoot;
+    if ((dir_vec.norm() > 0) && (MapManager::VoxelStatus::kFree != map_manager_->getPathStatus(p_start, p_end, robot_box_size_, true))) {
+      ROS_INFO("Segment [%d] is not clear.", i);
+    }
+
+    tf::Quaternion quat;
+    quat.setEuler(0.0, 0.0, best_path[i][3]);
+    tf::Vector3 origin(best_path[i][0], best_path[i][1], best_path[i][2]);
+    tf::Pose poseTF(quat, origin);
+    geometry_msgs::Pose pose;
+    tf::poseTFToMsg(poseTF, pose);
+    ret.push_back(pose);
+
+    double seg_length = (p1 - p0).norm();
+    traverse_length += seg_length;
+    traverse_time += seg_length / planning_params_.v_max;
+    if ((traverse_length > planning_params_.traverse_length_max) || (traverse_time > planning_params_.traverse_time_max)) {
+      break;
+    }
+    p0 = p1;
+  }
+
+  ROS_INFO("New planned path: size = %d, length = %f, time = %f", (int)ret.size(), traverse_length, traverse_time);
+
+  // Visualize the path
+  visualization_->visualizeRefPath(ret);
 }
 
 void Rrg::computeVolumetricGain(StateVec& state, VolumetricGain& vgain,
@@ -2001,6 +2179,77 @@ void Rrg::computeVolumetricGainRayModel(StateVec& state, VolumetricGain& vgain,
     visualization_->visualizeVolumetricGain(bound_min, bound_max, voxel_log,
                                             map_manager_->getResolution());
   }
+}
+bool Rrg::rayCastDownForGroundCheck(StateVec& state){
+  // Define the downward direction as a single ray along the -z axis.
+  Eigen::Vector3d ray_direction(0, 0, -1);
+
+  // Define the origin of the ray (the sensor position in this case).
+  Eigen::Vector3d origin(state[0], state[1], state[2]);
+
+  // Set up the bounds of the global space (sphere or cuboid).
+  Eigen::Vector3d bound_min;
+  Eigen::Vector3d bound_max;
+  if (global_space_params_.type == BoundedSpaceType::kSphere) {
+    for (int i = 0; i < 3; i++) {
+      bound_min[i] =
+          -global_space_params_.radius - global_space_params_.radius_extension;
+      bound_max[i] =
+          global_space_params_.radius + global_space_params_.radius_extension;
+    }
+  } else if (global_space_params_.type == BoundedSpaceType::kCuboid) {
+    for (int i = 0; i < 3; i++) {
+      bound_min[i] = global_space_params_.min_val[i] +
+                     global_space_params_.min_extension[i];
+      bound_max[i] = global_space_params_.max_val[i] +
+                     global_space_params_.max_extension[i];
+    }
+  } else {
+    PLANNER_ERROR("Global space is not defined.");
+    return false;
+  }
+
+  // Define sensor range bounds based on the sensor's range.
+  for (int i = 0; i < 3; i++) {
+    bound_min[i] =
+        std::max(bound_min[i],
+                 state[i] - 2.0);//sensor_params_.sensor["downward_sensor"].max_range);
+    bound_max[i] =
+        std::min(bound_max[i],
+                 state[i] + 2.0);//sensor_params_.sensor["downward_sensor"].max_range);
+  }
+
+  // Log to track voxel statuses.
+  std::tuple<int, int, int> gain_log_tmp;
+  std::vector<std::pair<Eigen::Vector3d, MapManager::VoxelStatus>> voxel_log_tmp;
+
+  // Single ray endpoint directly below the origin.
+  Eigen::Vector3d ray_endpoint = origin + ray_direction *2.0; //sensor_params_.sensor["downward_sensor"].max_range;
+  
+  // Cast a single ray downward.
+  std::vector<Eigen::Vector3d> single_ray_endpoint = {ray_endpoint};
+  map_manager_->getScanStatus(origin, single_ray_endpoint, gain_log_tmp, voxel_log_tmp);
+
+  // Analyze voxel statuses and check for occupied voxels.
+  int num_unknown_voxels = 0, num_free_voxels = 0, num_occupied_voxels = 0;
+
+  for (auto& vl : voxel_log_tmp) {
+    Eigen::Vector3d voxel = vl.first;
+    MapManager::VoxelStatus vs = vl.second;
+    int j = 0;
+    for (j = 0; j < 3; j++) {
+      if ((voxel[j] < bound_min[j]) || (voxel[j] > bound_max[j])) break;
+    }
+    if (j == 3) {
+      if (vs == MapManager::VoxelStatus::kOccupied) {
+        return true;
+      } 
+    }
+  }
+  
+
+  // If no occupied voxels were found, return false.
+  return false;                                   
 }
 
 void Rrg::computeVolumetricGainRayModelNoBound(StateVec& state,
@@ -2418,7 +2667,108 @@ bool Rrg::reconnectPathBlindly(std::vector<geometry_msgs::Pose>& ref_path,
   mod_path.push_back(ref_path.back());
   return true;
 }
+// std::vector<geometry_msgs::Pose> getBestPath_diffusion(){
+//   std::vector<geometry_msgs::Pose> ret;
+//   int id = best_vertex_->id;
+//   if (id == 0) return ret;
 
+//   // Get potentially exploring direction.
+//   std::vector<Eigen::Vector3d> best_path_3d;
+//   local_graph_->getShortestPath(id, local_graph_rep_, true, best_path_3d);
+//   double best_path_direction =
+//       Trajectory::estimateDirectionFromPath(best_path_3d);
+//   constexpr double kDiffAngleForwardThres = 0.5 * (M_PI + M_PI / 3);
+//   bool res = compareAngles(exploring_direction_, best_path_direction,
+//                            kDiffAngleForwardThres);
+//   if (planning_params_.type != PlanningModeType::kVerticalExploration) {
+//     if (!res) {
+//       ROS_WARN("Changing exploration direction.[%f --> %f]",
+//                exploring_direction_, best_path_direction);
+//     } else {
+//       ROS_INFO("Current exploring direction: %f; New path direction: %f",
+//                exploring_direction_, best_path_direction);
+//     }
+//   }
+
+//   // Extract path.
+//   double traverse_length = 0;
+//   double traverse_time = 0;
+//   std::vector<StateVec> best_path;
+//   local_graph_->getShortestPath(id, local_graph_rep_, true, best_path);
+//   Eigen::Vector3d p0(best_path[0][0], best_path[0][1], best_path[0][2]);
+//   std::vector<Vertex*> best_path_vertices;
+//   local_graph_->getShortestPath(best_vertex_->id, local_graph_rep_, true,
+//                                 best_path_vertices);
+
+//   const double kLenMin = 1.0;
+//   const double kLenMinMin = 0.3;
+//   std::vector<Eigen::Vector3d> path_vec;
+//   local_graph_->getShortestPath(best_vertex_->id, local_graph_rep_, true,
+//                                 path_vec);
+//   double total_len = Trajectory::getPathLength(path_vec);
+//   double len_min_thres = kLenMin;
+//   if (planning_params_.type != PlanningModeType::kVerticalExploration) {
+//     len_min_thres = kLenMinMin;
+//   }
+//   if (total_len <= len_min_thres) {
+//     ROS_WARN("Best path is too short.");
+//     return ret;
+//   }
+
+//   for (int i = 0; i < best_path.size(); ++i) {
+//     Eigen::Vector3d p1(best_path[i][0], best_path[i][1], best_path[i][2]);
+//     Eigen::Vector3d dir_vec = p1 - p0;
+
+//     // ERROR: Re-confirm this is a safe path.
+//     Eigen::Vector3d p_overshoot =
+//         dir_vec.normalized() * planning_params_.edge_overshoot;
+//     Eigen::Vector3d p_start = p0 + robot_params_.center_offset - p_overshoot;
+//     Eigen::Vector3d p_end =
+//         p0 + robot_params_.center_offset + dir_vec + p_overshoot;
+//     if ((dir_vec.norm() > 0) &&
+//         (MapManager::VoxelStatus::kFree !=
+//          map_manager_->getPathStatus(p_start, p_end, robot_box_size_, true))) {
+//       ROS_INFO("Segment [%d] is not clear.", i);
+//     }
+
+//     tf::Quaternion quat;
+//     quat.setEuler(0.0, 0.0, best_path[i][3]);
+//     tf::Vector3 origin(best_path[i][0], best_path[i][1], best_path[i][2]);
+//     tf::Pose poseTF(quat, origin);
+//     geometry_msgs::Pose pose;
+//     tf::poseTFToMsg(poseTF, pose);
+//     ret.push_back(pose);
+
+//     double seg_length = (p1 - p0).norm();
+//     traverse_length += seg_length;
+//     traverse_time += seg_length / planning_params_.v_max;
+//     if ((traverse_length > planning_params_.traverse_length_max) ||
+//         (traverse_time > planning_params_.traverse_time_max)) {
+//       break;
+//     }
+//     p0 = p1;
+//   }
+//   ROS_INFO("Best path:  size = %d, length = %f, time = %f", (int)ret.size(),
+//            traverse_length, traverse_time);
+
+//   // Modify the best path.
+//   if (planning_params_.path_safety_enhance_enable) {
+//     ros::Time mod_time;
+//     START_TIMER(mod_time);
+//     std::vector<geometry_msgs::Pose> mod_path;
+//     if (improveFreePath(ret, mod_path)) {
+//       ret = mod_path;
+//       addRefPathToGraph(global_graph_, mod_path);
+//     }
+//     double dmod_time = GET_ELAPSED_TIME(mod_time);
+//     ROS_WARN("Compute an alternate path in %f(s)", dmod_time);
+//     visualization_->visualizeModPath(mod_path);
+//   }
+
+//   visualization_->visualizeRefPath(ret);
+//   return ret;
+  
+// }
 std::vector<geometry_msgs::Pose> Rrg::getBestPath(std::string tgt_frame,
                                                   int& status) {
   // Decide if need to go home.
